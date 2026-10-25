@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Upload CSV data and visualize the USD/EUR exchange rate over time" />
+    <title>USD/EUR Exchange Rate</title>
+  </head>
+  <body class="bg-background font-sans text-text-primary antialiased">
+    <div id="app" class="flex min-h-screen flex-col">
+      <header class="border-b border-border bg-background">
+        <div class="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 sm:py-6">
+          <h1 class="text-xl font-semibold sm:text-2xl">USD/EUR Exchange Rate</h1>
+          <p class="mt-1 text-sm text-text-secondary">
+            Upload a CSV of daily rates to explore the USD/EUR exchange rate over time.
+          </p>
+        </div>
+      </header>
+      <main class="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        <section id="upload-section" aria-label="CSV file upload">
+          <div
+            id="drop-zone"
+            class="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-secondary/50 bg-surface px-4 py-8 text-center transition-colors sm:px-8"
+          >
+            <svg
+              class="h-10 w-10 text-text-secondary"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"
+              />
+            </svg>
+            <p class="font-medium">Drag and drop your CSV file here</p>
+            <p class="text-sm text-text-secondary">
+              Requires <code>observation_date</code> and <code>DEXUSEU</code> columns
+            </p>
+            <span class="text-sm text-text-secondary">or</span>
+            <label
+              for="file-input"
+              class="cursor-pointer rounded-md bg-primary px-4 py-2 font-medium text-white shadow-sm hover:bg-blue-700 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary"
+            >
+              Choose CSV file
+              <input id="file-input" type="file" accept=".csv,text/csv" class="sr-only" />
+            </label>
+            <p id="upload-status" class="mt-2 text-sm text-text-secondary" role="status" aria-live="polite">
+              Showing sample data. Upload a CSV to replace it.
+            </p>
+          </div>
+          <div
+            id="upload-error"
+            role="alert"
+            hidden
+            class="mt-4 flex gap-3 rounded-lg border border-error/40 border-l-4 border-l-error bg-red-50 px-4 py-3 text-sm"
+          >
+            <svg class="mt-0.5 h-5 w-5 shrink-0 text-error" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+            <div>
+              <p id="error-title" class="font-semibold text-red-800"></p>
+              <ul id="error-list" class="mt-1 list-disc pl-5"></ul>
+              <p class="mt-1">Fix the file and upload it again. The chart has not changed.</p>
+            </div>
+          </div>
+          <div
+            id="upload-summary"
+            hidden
+            class="mt-4 flex gap-3 rounded-lg border border-border border-l-4 border-l-success bg-surface px-4 py-3 text-sm"
+          >
+            <svg class="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <div>
+              <p class="font-semibold">Data processed successfully <span id="summary-file" class="font-normal text-text-secondary"></span></p>
+              <dl class="mt-2 grid grid-cols-3 gap-x-6 gap-y-1 sm:inline-grid">
+                <div>
+                  <dt class="text-text-secondary">Rows processed</dt>
+                  <dd id="summary-total" class="text-base font-semibold"></dd>
+                </div>
+                <div>
+                  <dt class="text-text-secondary">Rows dropped</dt>
+                  <dd id="summary-dropped" class="text-base font-semibold"></dd>
+                </div>
+                <div>
+                  <dt class="text-text-secondary">Valid data points</dt>
+                  <dd id="summary-valid" class="text-base font-semibold"></dd>
+                </div>
+              </dl>
+              <p id="summary-details" class="mt-2 text-text-secondary"></p>
+            </div>
+          </div>
+        </section>
+        <section
+          id="chart-section"
+          aria-label="Exchange rate chart"
+          class="mt-6 rounded-lg border border-border bg-background p-2 shadow-sm sm:mt-8 sm:p-4"
+        >
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-2 px-2 pt-2">
+            <div id="time-range" role="group" aria-label="Time range" class="inline-flex gap-1 rounded-lg bg-surface p-1">
+              <button type="button" data-range="1y" aria-pressed="true" class="time-range-btn">1 Year</button>
+              <button type="button" data-range="5y" aria-pressed="false" class="time-range-btn">5 Years</button>
+              <button type="button" data-range="10y" aria-pressed="false" class="time-range-btn">10 Years</button>
+              <button type="button" data-range="max" aria-pressed="false" class="time-range-btn">Max</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" id="reset-zoom" hidden class="chart-control-btn">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Reset zoom
+              </button>
+              <button type="button" id="fullscreen-toggle" aria-pressed="false" class="chart-control-btn">
+                <svg id="fullscreen-enter-icon" class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+                <svg id="fullscreen-exit-icon" hidden class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+                <span id="fullscreen-label">Fullscreen</span>
+              </button>
+            </div>
+          </div>
+          <p id="range-summary" class="mb-2 px-2 text-sm text-text-secondary" aria-live="polite"></p>
+          <div class="chart-canvas-wrap relative h-[400px] w-full sm:h-[480px]">
+            <canvas
+              id="exchange-rate-chart"
+              tabindex="0"
+              role="application"
+              aria-roledescription="interactive chart"
+              aria-label="USD/EUR exchange rate line chart"
+              aria-describedby="chart-keyboard-help"
+              class="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >Line chart of the USD/EUR exchange rate.</canvas>
+            <div id="chart-loading" class="chart-loading" aria-hidden="true">
+              <div class="chart-skeleton"></div>
+              <p class="text-center text-sm text-text-secondary">Loading chart…</p>
+            </div>
+            <div
+              id="chart-error"
+              hidden
+              role="alert"
+              class="absolute inset-0 flex items-center justify-center p-4 text-center text-sm font-medium text-red-800"
+            >
+              Unable to display chart. Please refresh and try again
+            </div>
+          </div>
+          <p id="chart-keyboard-help" hidden class="mt-2 px-2 text-xs text-text-secondary">
+            Keyboard: Left/Right arrows move between dates · Home/End jump to first/last ·
+            + / − zoom · Shift + arrows pan when zoomed · 0 resets zoom
+          </p>
+          <p id="chart-announcer" class="sr-only" aria-live="polite"></p>
+        </section>
+      </main>
+    </div>
+    <div id="fullscreen-backdrop" hidden class="fixed inset-0 z-40 bg-slate-950/80"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
